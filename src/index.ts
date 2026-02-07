@@ -1,23 +1,23 @@
-// Update security headers in Express application
+// src/index.ts
 
-const express = require('express');
-const helmet = require('helmet');
+// The entry point for the application.
+
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import routes from './routes';
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Example of setting security headers
-app.use(helmet());
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Content Security Policy (CSP) with iframe support
-app.use(helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    frameAncestors: ["'self'", "https://example.com"], // replace with valid sources
-  }
-}));
+// Routes
+app.use('/api', routes);
 
-// ... other middlewares and routes
-
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
