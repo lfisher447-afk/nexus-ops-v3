@@ -3,23 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEXUS // OPS V3</title>
+    <title>NEXUS // OPS V3.1 - ADVANCED EXTRACTION</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="scanlines"></div>
-    <div class="noise"></div>
     <div class="screen-overlay"></div>
 
     <div class="ui-wrapper">
         <header>
             <div class="brand">
-                <i class="fa-solid fa-cube"></i> NEXUS <span class="blink">V3</span>
+                <i class="fa-solid fa-microchip"></i> NEXUS <span class="blink">V3.1</span>
             </div>
             <div class="stats">
-                <span id="sysStatus">SYSTEM: OFFLINE</span>
+                <span id="sysStatus" style="color: var(--neon-alert)">STATUS: DISCONNECTED</span>
                 <span id="latency">PING: --ms</span>
             </div>
         </header>
@@ -27,33 +26,39 @@
         <main>
             <section class="panel control-panel">
                 <div class="panel-header">
-                    <i class="fa-solid fa-terminal"></i> COMMAND_INPUT
+                    <i class="fa-solid fa-terminal"></i> UPLINK_COMMAND
                 </div>
                 
                 <div class="input-zone">
-                    <input type="text" id="targetUrl" placeholder="ENTER TARGET URL..." autocomplete="off">
+                    <input type="text" id="targetUrl" placeholder="PASTE TARGET GOOGLE DOC URL..." autocomplete="off">
                     <button id="initBtn" class="btn-primary">
-                        <span class="btn-text">INITIALIZE</span>
-                        <span class="btn-glitch">INITIALIZE</span>
+                        INITIALIZE HANDSHAKE
                     </button>
                 </div>
 
-                <div class="panel-header mt-4">
-                    <i class="fa-solid fa-layer-group"></i> MODULES
+                <div class="panel-header">
+                    <i class="fa-solid fa-screwdriver-wrench"></i> VECTOR_MODULES
                 </div>
                 
                 <div class="tools-grid disabled" id="toolsPanel">
-                    <button onclick="Nexus.setMode('mobilebasic')"><i class="fa-solid fa-mobile"></i> BYPASS VIEW</button>
-                    <button onclick="Nexus.setMode('preview')"><i class="fa-solid fa-desktop"></i> DESKTOP VIEW</button>
-                    <button onclick="Nexus.download('pdf')"><i class="fa-solid fa-file-pdf"></i> PULL .PDF</button>
-                    <button onclick="Nexus.download('docx')"><i class="fa-solid fa-file-word"></i> PULL .DOCX</button>
-                    <button onclick="Nexus.download('txt')"><i class="fa-solid fa-file-lines"></i> PULL .TXT</button>
+                    <button onclick="Nexus.setMode('mobilebasic')" title="Standard Extraction">
+                        <i class="fa-solid fa-ghost"></i> BYPASS VIEW
+                    </button>
+                    <button onclick="Nexus.setMode('preview')" title="Desktop Simulation">
+                        <i class="fa-solid fa-display"></i> DESKTOP VIEW
+                    </button>
+                    <button onclick="Nexus.download('pdf')">
+                        <i class="fa-solid fa-file-pdf"></i> PULL .PDF
+                    </button>
+                    <button onclick="Nexus.download('docx')">
+                        <i class="fa-solid fa-file-word"></i> PULL .DOCX
+                    </button>
                 </div>
 
                 <div class="console-wrapper">
-                    <div class="console-header">./SYSTEM_LOGS</div>
+                    <div class="console-header">./LOGS/NEURAL_REGISTRY</div>
                     <div class="console-body" id="consoleOutput">
-                        <div class="log-line">Waiting for input...</div>
+                        <div class="log-line">Awaiting System Initialization...</div>
                     </div>
                 </div>
             </section>
@@ -61,13 +66,15 @@
             <section class="panel viewport-panel">
                 <div class="panel-header">
                     <i class="fa-solid fa-eye"></i> OPTICAL_SENSOR
-                    <span class="viewport-status" id="docTitle">NO SIGNAL</span>
+                    <span class="viewport-status" id="docTitle">NO SIGNAL ACQUIRED</span>
                 </div>
+                
                 <div class="iframe-container">
-                    <div class="loader" id="loader">
+                    <div class="loader" id="loader" style="display: none;">
                         <div class="hex-spinner"></div>
-                        <div class="loading-text">DECRYPTING STREAM</div>
+                        <div class="loading-text">DECRYPTING_STREAM...</div>
                     </div>
+                    
                     <iframe id="mainFrame" name="mainFrame"></iframe>
                 </div>
             </section>
