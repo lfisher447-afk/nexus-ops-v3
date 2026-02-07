@@ -1,1 +1,1 @@
-{\n  \"compilerOptions\": {\n    \"declaration\": true,\n    \"sourceMap\": true,\n    \"resolveJsonModule\": true\n  }\n}
+{"compilerOptions": {"target": "es6", "module": "commonjs", "strict": true, "esModuleInterop": true, "skipLibCheck": true, "forceConsistentCasingInFileNames": true},"include": ["src/**/*"],"exclude": ["node_modules"]}
