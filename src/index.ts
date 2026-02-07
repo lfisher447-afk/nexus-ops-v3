@@ -1,124 +1,143 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import axios from 'axios';
 import path from 'path';
+import { Stream } from 'stream';
 
-// --- CONFIGURATION ---
-const app = express();
-const PORT = process.env.PORT || 3000;
+/**
+ * NEXUS CORE ENGINE V3.1 - ADVANCED PROXY & EXTRACTION
+ * Optimized for Render/Vercel Serverless Environments
+ */
 
-// --- MIDDLEWARE ---
-app.use(cors()); // Allow cross-origin requests
-app.use(helmet({
-    contentSecurityPolicy: false, // Disabled to allow iframe loading of external sites
-}));
-app.use(morgan('tiny')); // Logger
-app.use(express.static(path.join(__dirname, '../public'))); // Serve UI
+class NexusEngine {
+    private app = express();
+    private readonly PORT = process.env.PORT || 3000;
+    private history: Array<{ id: string, title: string, timestamp: string }> = [];
 
-// --- TYPES ---
-interface ProxyRequest {
-    url: string;
-    mode?: 'mobilebasic' | 'preview' | 'export';
-    format?: string;
-}
+    constructor() {
+        this.initializeMiddleware();
+        this.initializeRoutes();
+        this.initializeErrorHandling();
+    }
 
-// --- UTILS ---
-const extractDocId = (url: string): string | null => {
-    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    return match ? match[1] : null;
-};
+    private initializeMiddleware() {
+        this.app.use(helmet({ contentSecurityPolicy: false })); // Allow iFrame bypass
+        this.app.use(cors());
+        this.app.use(morgan('combined')); // Detailed logging
+        this.app.use(express.json());
+        this.app.use(express.static(path.join(__dirname, '../public')));
+    }
 
-// --- ROUTES ---
-
-// 1. SYSTEM STATUS
-app.get('/api/status', (req, res) => {
-    res.json({ status: 'ONLINE', system: 'NEXUS_OPS_V3', time: new Date().toISOString() });
-});
-
-// 2. METADATA FETCH (Scrapes title without downloading)
-app.get('/api/meta', async (req: Request, res: Response) => {
-    const { url } = req.query;
-    if (!url || typeof url !== 'string') return res.status(400).json({ error: 'Missing URL' });
-
-    const docId = extractDocId(url);
-    if (!docId) return res.status(400).json({ error: 'Invalid Google Doc URL' });
-
-    try {
-        // We fetch the basic page to scrape the title
-        const target = `https://docs.google.com/document/d/${docId}/mobilebasic`;
-        const response = await axios.get(target, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
+    private initializeRoutes() {
+        // Heartbeat Protocol
+        this.app.get('/api/v3/status', (req, res) => {
+            res.status(200).json({
+                status: 'OPERATIONAL',
+                uptime: process.uptime(),
+                memory: process.memoryUsage().heapUsed
+            });
         });
 
-        const titleMatch = response.data.match(/<title>(.*?)<\/title>/);
-        const title = titleMatch ? titleMatch[1].replace(' - Google Docs', '') : 'Unknown Document';
+        // Advanced Metadata Scraper
+        this.app.get('/api/v3/meta', async (req: Request, res: Response, next: NextFunction) => {
+            try {
+                const { url } = req.query;
+                const docId = this.extractId(url as string);
+                
+                const response = await axios.get(`https://docs.google.com/document/d/${docId}/mobilebasic`, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) NexusOps/3.1' }
+                });
 
-        res.json({ docId, title, size_est: response.headers['content-length'] || 'Unknown' });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to retrieve metadata' });
-    }
-});
-
-// 3. PROXY VIEWER (Bypasses CORS for the iFrame)
-app.get('/api/proxy', async (req: Request, res: Response) => {
-    const { url, mode } = req.query;
-    if (!url || typeof url !== 'string') return res.status(400).send('URL Required');
-
-    const docId = extractDocId(url);
-    if (!docId) return res.status(400).send('Invalid ID');
-
-    // Default to mobilebasic for cleanest extraction
-    const viewMode = mode === 'preview' ? 'preview' : 'mobilebasic';
-    const targetUrl = `https://docs.google.com/document/d/${docId}/${viewMode}`;
-
-    try {
-        const response = await axios.get(targetUrl, {
-            responseType: 'stream',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                const title = response.data.match(/<title>(.*?)<\/title>/)?.[1]?.replace(' - Google Docs', '') || 'RESTRICTED_ACCESS';
+                
+                const meta = { id: docId, title, timestamp: new Date().toISOString() };
+                this.history.unshift(meta); // Push to volatile memory registry
+                
+                res.json(meta);
+            } catch (error) {
+                next(error);
             }
         });
 
-        // Forward headers
-        res.setHeader('Content-Type', response.headers['content-type']);
-        
-        // Pipe the stream directly to client
-        response.data.pipe(res);
-    } catch (error) {
-        res.status(502).send('Proxy Error: Could not reach Google Servers');
-    }
-});
+        // Secure Stream Tunnel (The Proxy)
+        this.app.get('/api/v3/proxy', async (req: Request, res: Response) => {
+            const { url, mode } = req.query;
+            const docId = this.extractId(url as string);
+            const endpoint = mode === 'preview' ? 'preview' : 'mobilebasic';
 
-// 4. DOWNLOAD TUNNEL (Handles file exports)
-app.get('/api/download', async (req: Request, res: Response) => {
-    const { url, format } = req.query;
-    const docId = extractDocId(url as string);
-    if (!docId) return res.status(400).json({ error: 'Invalid ID' });
+            try {
+                const streamResponse = await axios({
+                    method: 'GET',
+                    url: `https://docs.google.com/document/d/${docId}/${endpoint}`,
+                    responseType: 'stream',
+                    timeout: 15000
+                });
 
-    const exportFormat = format || 'pdf';
-    const downloadUrl = `https://docs.google.com/document/d/${docId}/export?format=${exportFormat}`;
-
-    try {
-        const response = await axios({
-            method: 'GET',
-            url: downloadUrl,
-            responseType: 'stream'
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.setHeader('X-Frame-Options', 'ALLOWALL');
+                
+                (streamResponse.data as Stream).pipe(res);
+            } catch (error) {
+                res.status(502).send('DATA_STREAM_INTERRUPTED');
+            }
         });
 
-        res.setHeader('Content-Disposition', `attachment; filename="nexus_export_${docId}.${exportFormat}"`);
-        res.setHeader('Content-Type', response.headers['content-type']);
-        
-        response.data.pipe(res);
-    } catch (error) {
-        res.status(500).send('Download Stream Failed');
+        // Binary Export Tunnel
+        this.app.get('/api/v3/export', async (req: Request, res: Response) => {
+            const { url, format } = req.query;
+            const docId = this.extractId(url as string);
+            
+            try {
+                const download = await axios({
+                    method: 'GET',
+                    url: `https://docs.google.com/document/d/${docId}/export?format=${format}`,
+                    responseType: 'stream'
+                });
+
+                res.setHeader('Content-Disposition', `attachment; filename="nexus_${docId}.${format}"`);
+                (download.data as Stream).pipe(res);
+            } catch (error) {
+                res.status(500).json({ error: 'EXPORT_BUFFER_OVERFLOW' });
+            }
+        });
+
+        // Registry Route
+        this.app.get('/api/v3/registry', (req, res) => {
+            res.json(this.history.slice(0, 10));
+        });
     }
-});
 
-// --- INITIALIZATION ---
-app.listen(PORT, () => {
-    console.log(`[NEXUS] SYSTEM ONLINE ON PORT ${PORT}`);
-});
+    private initializeErrorHandling() {
+        this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+            console.error(`[CRITICAL_FAILURE]: ${err.message}`);
+            res.status(500).json({
+                error: 'INTERNAL_CORE_ERROR',
+                code: 500,
+                message: err.message
+            });
+        });
+    }
 
-export default app;
+    private extractId(url: string): string {
+        return url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '';
+    }
+
+    public run() {
+        this.app.listen(this.PORT, () => {
+            console.log(`
+            ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
+            ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝
+            ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗
+            ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║
+            ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
+            ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+            CORE SYSTEM V3.1 ONLINE | PORT: ${this.PORT}
+            `);
+        });
+    }
+}
+
+const nexus = new NexusEngine();
+nexus.run();
